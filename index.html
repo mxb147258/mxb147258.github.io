@@ -1,0 +1,284 @@
+!DOCTYPE html
+html lang=zh-CN
+meta charset=UTF-8
+meta name=viewport content=width=device-width, initial-scale=1.0
+title带材缺陷比对系统【正式密码版】title
+style
+{box-sizingborder-box;margin0;padding0}
+body{font-familyArial,pingfang-sc,sans-serif;padding14px;max-width700px;margin0 auto}
+input,button,textarea{width100%;padding10px;margin6px 0;border1px solid #ccc;border-radius6px}
+textarea{min-height110px;font-size14px}
+button{background#007bff;color#fff;bordernone;font-size15px}
+.sec{border1px solid #ccc;padding12px;margin12px 0;border-radius8px}
+.title{font-weightbold;margin-bottom8px}
+.list{max-height280px;overflowauto;background#f9f9f9;padding8px}
+.item{displayflex;gap10px;padding6px;background#fff;margin4px 0;align-itemscenter}
+.item span{flex1;font-size13px}
+#result{white-spacepre-wrap;padding10px;max-height400px;overflowauto;background#fcfcfc;font-size12px}
+#loginBox{positionfixed;top0;left0;width100%;height100%;background#fff;displayflex;align-itemscenter;justify-contentcenter;padding20px}
+style
+
+body
+
+!-- 登录密码框 --
+div id=loginBox
+  div style=width100%;max-width400px
+    h3带材系统登录h3
+    input type=password id=pwd placeholder=请输入登录密码
+    button onclick=login()登录button
+  div
+div
+
+!-- 主界面 默认隐藏 --
+div id=main style=displaynone
+
+h2带材缺陷比对系统【正式密码版】h2
+
+div class=sec
+  div class=title带材编号 & 轮次div
+  input id=stripNo placeholder=带材编号
+  input id=round type=number placeholder=轮次（1、2、3...无上限） value=1
+div
+
+div class=sec
+  div class=title初筛人员（第1轮必须填）div
+  input id=screener placeholder=初筛人员姓名
+div
+
+div class=sec
+  div class=title复核人员（第2轮及以后必须填）div
+  input id=reviewer placeholder=复核人员姓名
+div
+
+div class=sec
+  div class=title① 粘贴 米数 列div
+  textarea id=meterArea placeholder=直接粘贴Excel整列米数textarea
+div
+
+div class=sec
+  div class=title② 粘贴 缺陷名称 列div
+  textarea id=defectArea placeholder=直接粘贴Excel整列缺陷textarea
+div
+
+button onclick=parse()一键匹配：米数 ↔ 缺陷button
+
+div class=sec
+  div class=title当前列表 span id=count0span 条div
+  div class=list id=itemsdiv
+  button onclick=save()保存到云端button
+  button onclick=clearList() style=background#dc3545清空列表button
+div
+
+div class=sec
+  div class=title对比 & 导出div
+  button onclick=loadAndCompare()加载并对比所有轮次button
+  button onclick=exportResult()导出对比结果Excelbutton
+  button onclick=exportFull()导出全部原始数据Excelbutton
+  div id=resultdiv
+div
+
+div
+
+script
+ ====================== 登录密码 ======================
+const RIGHT_PWD = 123456;   你可以自己改密码
+function login(){
+  const p = document.getElementById(pwd).value;
+  if(p === RIGHT_PWD){
+    document.getElementById(loginBox).style.display=none;
+    document.getElementById(main).style.display=block;
+  }else{
+    alert(密码错误);
+  }
+}
+
+ ====================== 云端数据库 ======================
+const DB_URL = httpsjsonblob.comapijsonBlob;
+let DB_ID = localStorage.getItem(DB_ID)  ;
+let list = [];
+
+async function getCloud() {
+  if (!DB_ID) return {};
+  try {
+    const res = await fetch(DB_URL +  + DB_ID, { signal AbortSignal.timeout(10000) });
+    return await res.json()  {};
+  } catch (e) { return {}; }
+}
+
+async function saveCloud(data) {
+  try {
+    if (!DB_ID) {
+      const r = await fetch(DB_URL, {
+        method POST,
+        headers { Content-Type applicationjson },
+        body JSON.stringify(data),
+        signal AbortSignal.timeout(15000)
+      });
+      const loc = r.headers.get(Location);
+      DB_ID = loc.split().pop();
+      localStorage.setItem(DB_ID, DB_ID);
+    } else {
+      await fetch(DB_URL +  + DB_ID, {
+        method PUT,
+        headers { Content-Type applicationjson },
+        body JSON.stringify(data),
+        signal AbortSignal.timeout(15000)
+      });
+    }
+  } catch (e) {
+    alert(云端同步失败，请检查网络);
+  }
+}
+
+ 解析米数 & 缺陷
+function parse() {
+  const meterText = document.getElementById(meterArea).value.trim();
+  const defectText = document.getElementById(defectArea).value.trim();
+  if (!meterText  !defectText) { alert(请粘贴米数和缺陷); return; }
+
+  const meters = meterText.split(n).map(s=s.trim()).filter(s=!isNaN(parseFloat(s))&&s);
+  const defects = defectText.split(n).map(s=s.trim()).filter(s=s);
+  const minLen = Math.min(meters.length, defects.length);
+  list = [];
+  for(let i=0;iminLen;i++){
+    const m = parseFloat(meters[i]);
+    const d = defects[i];
+    if(!isNaN(m)&&d) list.push({meterm,defectd});
+  }
+  render();
+  document.getElementById(meterArea).value=;
+  document.getElementById(defectArea).value=;
+}
+
+function render(){
+  document.getElementById(count).textContent=list.length;
+  document.getElementById(items).innerHTML=list.map((it,i)=`
+  div class=item
+    span${i+1}｜${it.meter}｜${it.defect}span
+    button onclick=del(${i}) style=widthauto;background#dc3545;padding4px 8px删button
+  div`).join();
+}
+
+function del(i){list.splice(i,1);render();}
+function clearList(){list=[];render();}
+
+ 保存（带人员校验）
+async function save(){
+  const no = document.getElementById(stripNo).value.trim();
+  const round = parseInt(document.getElementById(round).value)1;
+  const screener = document.getElementById(screener).value.trim();
+  const reviewer = document.getElementById(reviewer).value.trim();
+
+  if(!no){alert(请输入带材编号);return;}
+  if(list.length===0){alert(请先匹配数据);return;}
+
+  if(round===1){
+    if(!screener){alert(第1轮必须填初筛人员);return;}
+  }else{
+    if(!reviewer){alert(第2轮起必须填复核人员);return;}
+  }
+
+  const data=await getCloud();
+  if(!data[no]){
+    data[no]={screenerscreener,reviewerreviewer,rounds{}};
+  }else{
+    if(reviewer) data[no].reviewer=reviewer;
+  }
+  data[no].rounds[round]=list;
+  await saveCloud(data);
+  alert(保存成功！已同步云端);
+  list=[];render();
+}
+
+ 对比
+async function loadAndCompare(){
+  const no=document.getElementById(stripNo).value.trim();
+  if(!no){alert(请输入带材编号);return;}
+  const data=await getCloud();
+  const strip=data[no];
+  if(!strip){alert(无此带材记录);return;}
+
+  const roundsObj=strip.rounds{};
+  const rs=Object.keys(roundsObj).map(Number).sort((a,b)=a-b);
+  if(rs.length2){alert(至少2轮才能对比);return;}
+
+  const last=Math.max(...rs);
+  const final=roundsObj[last];
+  const res={
+    stripNono,
+    screenerstrip.screener,
+    reviewerstrip.reviewer,
+    finalRoundlast,
+    rounds[],
+    changes{}
+  };
+
+  rs.forEach(r={
+    if(r===last)return;
+    const curr=roundsObj[r];
+    let err=0,total=curr.length;
+    curr.forEach(it={
+      const f=final.find(x=x.meter===it.meter);
+      if(!f)return;
+      if(it.defect!==f.defect){
+        err++;
+        const key=it.defect+→+f.defect;
+        res.changes[key]=(res.changes[key]0)+1;
+      }
+    });
+    res.rounds.push({
+      roundr,total,err,ratetotal((errtotal100).toFixed(2))+%0%
+    });
+  });
+
+  const totalC=Object.values(res.changes).reduce((a,b)=a+b,0);
+  res.changeStats=Object.entries(res.changes).map(([k,v])=({
+    changek,countv,pcttotalC((vtotalC100).toFixed(2))+%0%
+  }));
+
+  window._lastCompare=res;
+  document.getElementById(result).textContent=JSON.stringify(res,null,2);
+}
+
+ 导出
+function exportResult(){
+  if(!window._lastCompare){alert(请先对比);return;}
+  const d=window._lastCompare;
+  let csv=带材编号,初筛人,复核人,最终轮次,轮次,总条数,错误数,错误率n;
+  d.rounds.forEach(it={
+    csv+=`${d.stripNo},${d.screener},${d.reviewer},${d.finalRound},${it.round},${it.total},${it.err},${it.rate}n`;
+  });
+  csv+=n缺陷修改统计n修改内容,数量,占比n;
+  d.changeStats.forEach(it={
+    csv+=`${it.change},${it.count},${it.pct}n`;
+  });
+  download(csv,带材对比结果.csv);
+}
+
+async function exportFull(){
+  const data=await getCloud();
+  let csv=带材编号,初筛人,复核人,轮次,米数,缺陷名称n;
+  for(const no in data){
+    const st=data[no];
+    const scr=st.screener;
+    const rev=st.reviewer;
+    const rds=st.rounds{};
+    for(const r in rds){
+      rds[r].forEach(it={
+        csv+=`${no},${scr},${rev},${r},${it.meter},${it.defect}n`;
+      });
+    }
+  }
+  download(csv,带材全部数据.csv);
+}
+
+function download(csv,name){
+  const blob=new Blob([ufeff+csv],{typetextcsv;charset=utf-8});
+  const a=document.createElement(a);
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  a.click();
+}
+script
+body
+html
