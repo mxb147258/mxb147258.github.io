@@ -2,20 +2,25 @@
 <html lang="zh-CN">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>带材缺陷比对系统【正式密码版】</title>
+<title>带材缺陷比对系统【马先波专属公盘版】</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,pingfang-sc,sans-serif;padding:14px;max-width:700px;margin:0 auto}
 input,button,textarea{width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px}
 textarea{min-height:110px;font-size:14px}
-button{background:#007bff;color:#fff;border:none;font-size:15px}
+button{background:#007bff;color:#fff;border:none;font-size:15px;cursor:pointer}
+button:hover{background:#0056b3}
 .sec{border:1px solid #ccc;padding:12px;margin:12px 0;border-radius:8px}
 .title{font-weight:bold;margin-bottom:8px}
 .list{max-height:280px;overflow:auto;background:#f9f9f9;padding:8px}
 .item{display:flex;gap:10px;padding:6px;background:#fff;margin:4px 0;align-items:center}
 .item span{flex:1;font-size:13px}
 #result{white-space:pre-wrap;padding:10px;max-height:400px;overflow:auto;background:#fcfcfc;font-size:12px}
-#loginBox{position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;display:flex;align-items:center;justify-content:center;padding:20px}
+#loginBox{position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;display:flex;align-items:center;justify-content:center;padding:20px;z-index:9999}
+.tips{color:#666;font-size:12px;margin-top:5px;line-height:1.5}
+.path-box{background:#f5f5f5;padding:8px;border-radius:4px;margin:5px 0;word-break:break-all}
+.danger-btn{background:#dc3545!important}
+.danger-btn:hover{background:#c82333!important}
 </style>
 
 <body>
@@ -23,261 +28,431 @@ button{background:#007bff;color:#fff;border:none;font-size:15px}
 <!-- 登录密码框 -->
 <div id="loginBox">
   <div style="width:100%;max-width:400px">
-    <h3>带材系统登录</h3>
+    <h3 style="text-align:center;margin-bottom:20px">带材缺陷比对系统</h3>
     <input type="password" id="pwd" placeholder="请输入登录密码">
-    <button onclick="login()">登录</button>
+    <button onclick="login()" style="margin-top:10px">登录</button>
   </div>
 </div>
 
 <!-- 主界面 默认隐藏 -->
 <div id="main" style="display:none">
 
-<h2>带材缺陷比对系统【正式密码版】</h2>
+<h2 style="text-align:center;margin-bottom:20px">带材缺陷比对系统【公盘版】</h2>
+
+<!-- 公盘路径提示 -->
+<div class="sec">
+  <div class="title">📌 公盘数据存储路径</div>
+  <div class="path-box">
+    \\192.168.90.19\FileShare\应用材料部\部门文件夹\12.临时文件\马先波\网页\strip_data
+  </div>
+  <div class="tips">请将数据文件（strip_data.json）保存在此路径下</div>
+</div>
 
 <div class="sec">
-  <div class="title">带材编号 & 轮次</div>
-  <input id="stripNo" placeholder="带材编号">
+  <div class="title">基础信息</div>
+  <input id="stripNo" placeholder="带材编号（必填）">
   <input id="round" type="number" placeholder="轮次（1、2、3...无上限）" value="1">
 </div>
 
 <div class="sec">
-  <div class="title">初筛人员（第1轮必须填）</div>
-  <input id="screener" placeholder="初筛人员姓名">
+  <div class="title">人员信息</div>
+  <input id="screener" placeholder="初筛人员（第1轮必须填写）">
+  <input id="reviewer" placeholder="复核人员（第2轮及以后必须填写）">
 </div>
 
 <div class="sec">
-  <div class="title">复核人员（第2轮及以后必须填）</div>
-  <input id="reviewer" placeholder="复核人员姓名">
+  <div class="title">数据录入</div>
+  <textarea id="meterArea" placeholder="① 粘贴Excel中的米数列（一行一个数值）"></textarea>
+  <textarea id="defectArea" placeholder="② 粘贴Excel中的缺陷名称列（一行一个内容）"></textarea>
+  <button onclick="parse()" style="margin-top:10px">一键匹配：米数 ↔ 缺陷</button>
 </div>
 
 <div class="sec">
-  <div class="title">① 粘贴 米数 列</div>
-  <textarea id="meterArea" placeholder="直接粘贴Excel整列米数"></textarea>
-</div>
-
-<div class="sec">
-  <div class="title">② 粘贴 缺陷名称 列</div>
-  <textarea id="defectArea" placeholder="直接粘贴Excel整列缺陷"></textarea>
-</div>
-
-<button onclick="parse()">一键匹配：米数 ↔ 缺陷</button>
-
-<div class="sec">
-  <div class="title">当前列表 <span id="count">0</span> 条</div>
+  <div class="title">匹配结果（共<span id="count">0</span>条）</div>
   <div class="list" id="items"></div>
-  <button onclick="save()">保存到云端</button>
-  <button onclick="clearList()" style="background:#dc3545">清空列表</button>
+  <button onclick="save()">保存数据到内存</button>
+  <button onclick="clearList()" class="danger-btn">清空列表</button>
 </div>
 
 <div class="sec">
-  <div class="title">对比 & 导出</div>
+  <div class="title">公盘数据同步</div>
+  <button onclick="document.getElementById('importFile').click()">📤 从公盘导入数据</button>
+  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importFromDisk(this.files[0])">
+  <button onclick="exportToDisk()">📥 导出数据到公盘</button>
+  <div class="tips">导出后请将 strip_data.json 放到上方指定的公盘路径</div>
+</div>
+
+<div class="sec">
+  <div class="title">对比分析 & 导出</div>
   <button onclick="loadAndCompare()">加载并对比所有轮次</button>
   <button onclick="exportResult()">导出对比结果Excel</button>
-  <button onclick="exportFull()">导出全部原始数据Excel</button>
-  <div id="result"></div>
+  <button onclick="exportFull()">导出全部数据Excel</button>
+  <div id="result" style="margin-top:10px"></div>
 </div>
 
 </div>
 
 <script>
-// ====================== 登录密码 ======================
-const RIGHT_PWD = "123456";  // 你可以自己改密码
+// ====================== 登录密码配置 ======================
+const RIGHT_PWD = "123456"; // 可自行修改密码，建议改复杂一点
 function login(){
   const p = document.getElementById("pwd").value;
   if(p === RIGHT_PWD){
-    document.getElementById("loginBox").style.display="none";
-    document.getElementById("main").style.display="block";
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("main").style.display = "block";
   }else{
-    alert("密码错误");
+    alert("❌ 密码错误，请重新输入");
+    document.getElementById("pwd").value = "";
   }
 }
 
-// ====================== 云端数据库 ======================
-const DB_URL = "https://jsonblob.com/api/jsonBlob";
-let DB_ID = localStorage.getItem("DB_ID") || "";
-let list = [];
+// ====================== 核心数据管理 ======================
+let list = [];         // 当前匹配的米数-缺陷列表
+let globalData = {};   // 所有带材的完整数据（内存中）
+// 公盘路径常量（方便后续修改）
+const PUBLIC_DISK_PATH = "\\\\192.168.90.19\\FileShare\\应用材料部\\部门文件夹\\12.临时文件\\马先波\\网页\\strip_data";
 
-async function getCloud() {
-  if (!DB_ID) return {};
-  try {
-    const res = await fetch(DB_URL + "/" + DB_ID, { signal: AbortSignal.timeout(10000) });
-    return await res.json() || {};
-  } catch (e) { return {}; }
-}
-
-async function saveCloud(data) {
-  try {
-    if (!DB_ID) {
-      const r = await fetch(DB_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        signal: AbortSignal.timeout(15000)
-      });
-      const loc = r.headers.get("Location");
-      DB_ID = loc.split("/").pop();
-      localStorage.setItem("DB_ID", DB_ID);
-    } else {
-      await fetch(DB_URL + "/" + DB_ID, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        signal: AbortSignal.timeout(15000)
-      });
+// 从公盘导入JSON数据文件
+function importFromDisk(file) {
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      globalData = JSON.parse(e.target.result);
+      alert(`✅ 导入成功！\n已加载 ${Object.keys(globalData).length} 个带材的历史数据`);
+    } catch(error) {
+      alert("❌ 导入失败：\n1. 请确认文件是 strip_data.json\n2. 请确认文件格式正确（无语法错误）");
+      console.error("导入错误详情：", error);
     }
-  } catch (e) {
-    alert("云端同步失败，请检查网络");
-  }
+  };
+  reader.readAsText(file);
 }
 
-// 解析米数 & 缺陷
+// 导出数据到公盘（下载JSON文件）
+function exportToDisk() {
+  if (Object.keys(globalData).length === 0) {
+    alert("⚠️ 暂无数据可导出！");
+    return;
+  }
+  
+  // 生成格式化的JSON文件
+  const blob = new Blob(
+    [JSON.stringify(globalData, null, 2)], 
+    { type: "application/json;charset=utf-8" }
+  );
+  
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "strip_data.json"; // 固定文件名，避免混乱
+  a.click();
+  
+  // 提示保存路径（转义反斜杠）
+  alert(`✅ 数据已导出！\n请将下载的 strip_data.json 文件放到：\n${PUBLIC_DISK_PATH}`);
+}
+
+// 解析并匹配米数和缺陷数据
 function parse() {
   const meterText = document.getElementById("meterArea").value.trim();
   const defectText = document.getElementById("defectArea").value.trim();
-  if (!meterText || !defectText) { alert("请粘贴米数和缺陷"); return; }
+  
+  // 基础校验
+  if (!meterText || !defectText) {
+    alert("❌ 请同时粘贴米数和缺陷数据！");
+    return;
+  }
 
-  const meters = meterText.split("\n").map(s=>s.trim()).filter(s=>!isNaN(parseFloat(s))&&s);
-  const defects = defectText.split("\n").map(s=>s.trim()).filter(s=>s);
+  // 处理米数：过滤有效数值（排除空值、非数字）
+  const meters = meterText.split("\n")
+    .map(s => s.trim())
+    .filter(s => !isNaN(parseFloat(s)) && s !== "");
+  
+  // 处理缺陷：过滤空值
+  const defects = defectText.split("\n")
+    .map(s => s.trim())
+    .filter(s => s !== "");
+  
+  // 取最短长度，保证一一匹配
   const minLen = Math.min(meters.length, defects.length);
   list = [];
-  for(let i=0;i<minLen;i++){
-    const m = parseFloat(meters[i]);
-    const d = defects[i];
-    if(!isNaN(m)&&d) list.push({meter:m,defect:d});
+  
+  // 构建匹配列表
+  for (let i = 0; i < minLen; i++) {
+    list.push({
+      meter: parseFloat(meters[i]),
+      defect: defects[i]
+    });
   }
+  
+  // 渲染匹配结果
   render();
-  document.getElementById("meterArea").value="";
-  document.getElementById("defectArea").value="";
+  // 清空输入框
+  document.getElementById("meterArea").value = "";
+  document.getElementById("defectArea").value = "";
+  
+  alert(`✅ 匹配完成！共匹配 ${minLen} 条有效数据`);
 }
 
-function render(){
-  document.getElementById("count").textContent=list.length;
-  document.getElementById("items").innerHTML=list.map((it,i)=>`
-  <div class="item">
-    <span>${i+1}｜${it.meter}｜${it.defect}</span>
-    <button onclick="del(${i})" style="width:auto;background:#dc3545;padding:4px 8px">删</button>
-  </div>`).join("");
+// 渲染匹配结果列表
+function render() {
+  document.getElementById("count").textContent = list.length;
+  
+  if (list.length === 0) {
+    document.getElementById("items").innerHTML = "<div style='text-align:center;color:#999'>暂无数据</div>";
+    return;
+  }
+  
+  // 生成列表HTML
+  const itemsHtml = list.map((item, index) => `
+    <div class="item">
+      <span>${index + 1}｜${item.meter}｜${item.defect}</span>
+      <button onclick="del(${index})" class="danger-btn" style="width:auto;padding:4px 8px">删</button>
+    </div>
+  `).join("");
+  
+  document.getElementById("items").innerHTML = itemsHtml;
 }
 
-function del(i){list.splice(i,1);render();}
-function clearList(){list=[];render();}
+// 删除单条匹配数据
+function del(index) {
+  list.splice(index, 1);
+  render();
+}
 
-// 保存（带人员校验）
-async function save(){
-  const no = document.getElementById("stripNo").value.trim();
-  const round = parseInt(document.getElementById("round").value)||1;
+// 清空匹配列表
+function clearList() {
+  list = [];
+  render();
+  alert("✅ 列表已清空");
+}
+
+// 保存当前数据到内存
+function save() {
+  const stripNo = document.getElementById("stripNo").value.trim();
+  const round = parseInt(document.getElementById("round").value) || 1;
   const screener = document.getElementById("screener").value.trim();
   const reviewer = document.getElementById("reviewer").value.trim();
 
-  if(!no){alert("请输入带材编号");return;}
-  if(list.length===0){alert("请先匹配数据");return;}
-
-  if(round===1){
-    if(!screener){alert("第1轮必须填初筛人员");return;}
-  }else{
-    if(!reviewer){alert("第2轮起必须填复核人员");return;}
+  // 校验逻辑
+  if (!stripNo) { alert("❌ 请输入带材编号！"); return; }
+  if (list.length === 0) { alert("❌ 请先匹配米数和缺陷数据！"); return; }
+  
+  // 人员信息校验
+  if (round === 1 && !screener) {
+    alert("❌ 第1轮数据必须填写初筛人员！");
+    return;
+  }
+  if (round > 1 && !reviewer) {
+    alert("❌ 第2轮及以后数据必须填写复核人员！");
+    return;
   }
 
-  const data=await getCloud();
-  if(!data[no]){
-    data[no]={screener:screener,reviewer:reviewer,rounds:{}};
-  }else{
-    if(reviewer) data[no].reviewer=reviewer;
-  }
-  data[no].rounds[round]=list;
-  await saveCloud(data);
-  alert("保存成功！已同步云端");
-  list=[];render();
-}
-
-// 对比
-async function loadAndCompare(){
-  const no=document.getElementById("stripNo").value.trim();
-  if(!no){alert("请输入带材编号");return;}
-  const data=await getCloud();
-  const strip=data[no];
-  if(!strip){alert("无此带材记录");return;}
-
-  const roundsObj=strip.rounds||{};
-  const rs=Object.keys(roundsObj).map(Number).sort((a,b)=>a-b);
-  if(rs.length<2){alert("至少2轮才能对比");return;}
-
-  const last=Math.max(...rs);
-  const final=roundsObj[last];
-  const res={
-    stripNo:no,
-    screener:strip.screener||"",
-    reviewer:strip.reviewer||"",
-    finalRound:last,
-    rounds:[],
-    changes:{}
-  };
-
-  rs.forEach(r=>{
-    if(r===last)return;
-    const curr=roundsObj[r];
-    let err=0,total=curr.length;
-    curr.forEach(it=>{
-      const f=final.find(x=>x.meter===it.meter);
-      if(!f)return;
-      if(it.defect!==f.defect){
-        err++;
-        const key=it.defect+"→"+f.defect;
-        res.changes[key]=(res.changes[key]||0)+1;
-      }
-    });
-    res.rounds.push({
-      round:r,total,err,rate:total?((err/total*100).toFixed(2))+"%":"0%"
-    });
-  });
-
-  const totalC=Object.values(res.changes).reduce((a,b)=>a+b,0);
-  res.changeStats=Object.entries(res.changes).map(([k,v])=>({
-    change:k,count:v,pct:totalC?((v/totalC*100).toFixed(2))+"%":"0%"
-  }));
-
-  window._lastCompare=res;
-  document.getElementById("result").textContent=JSON.stringify(res,null,2);
-}
-
-// 导出
-function exportResult(){
-  if(!window._lastCompare){alert("请先对比");return;}
-  const d=window._lastCompare;
-  let csv="带材编号,初筛人,复核人,最终轮次,轮次,总条数,错误数,错误率\n";
-  d.rounds.forEach(it=>{
-    csv+=`${d.stripNo},${d.screener},${d.reviewer},${d.finalRound},${it.round},${it.total},${it.err},${it.rate}\n`;
-  });
-  csv+="\n缺陷修改统计\n修改内容,数量,占比\n";
-  d.changeStats.forEach(it=>{
-    csv+=`"${it.change}",${it.count},${it.pct}\n`;
-  });
-  download(csv,"带材对比结果.csv");
-}
-
-async function exportFull(){
-  const data=await getCloud();
-  let csv="带材编号,初筛人,复核人,轮次,米数,缺陷名称\n";
-  for(const no in data){
-    const st=data[no];
-    const scr=st.screener||"";
-    const rev=st.reviewer||"";
-    const rds=st.rounds||{};
-    for(const r in rds){
-      rds[r].forEach(it=>{
-        csv+=`${no},${scr},${rev},${r},${it.meter},"${it.defect}"\n`;
-      });
+  // 初始化带材数据（首次保存）
+  if (!globalData[stripNo]) {
+    globalData[stripNo] = {
+      screener: screener,    // 初筛人员（只存第1轮的）
+      reviewer: reviewer,    // 复核人员（后续轮次会更新）
+      rounds: {}             // 各轮次数据
+    };
+  } else {
+    // 非首次保存：更新复核人员（初筛人员不覆盖）
+    if (reviewer) {
+      globalData[stripNo].reviewer = reviewer;
     }
   }
-  download(csv,"带材全部数据.csv");
+
+  // 保存当前轮次数据
+  globalData[stripNo].rounds[round] = [...list];
+  
+  alert(`✅ 保存成功！\n带材编号：${stripNo}\n轮次：${round}\n数据条数：${list.length}`);
+  
+  // 清空当前列表
+  list = [];
+  render();
 }
 
-function download(csv,name){
-  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=name;
+// 加载并对比所有轮次数据
+function loadAndCompare() {
+  const stripNo = document.getElementById("stripNo").value.trim();
+  
+  // 基础校验
+  if (!stripNo) { alert("❌ 请输入带材编号！"); return; }
+  if (!globalData[stripNo]) { 
+    alert("❌ 无此带材记录！\n请先从公盘导入数据，或先保存该带材的至少2轮数据"); 
+    return;
+  }
+
+  const stripData = globalData[stripNo];
+  const roundsObj = stripData.rounds || {};
+  const roundNumbers = Object.keys(roundsObj).map(Number).sort((a, b) => a - b);
+  
+  // 校验轮次数量
+  if (roundNumbers.length < 2) {
+    alert(`❌ 该带材只有 ${roundNumbers.length} 轮数据！\n至少需要2轮才能对比`);
+    return;
+  }
+
+  // 以最后一轮为基准
+  const finalRound = Math.max(...roundNumbers);
+  const finalData = roundsObj[finalRound];
+  
+  // 构建对比结果
+  const compareResult = {
+    stripNo: stripNo,
+    screener: stripData.screener || "",
+    reviewer: stripData.reviewer || "",
+    finalRound: finalRound,
+    rounds: [],
+    changes: {}
+  };
+
+  // 遍历每一轮（除最后一轮）对比
+  roundNumbers.forEach(round => {
+    if (round === finalRound) return;
+    
+    const currentData = roundsObj[round];
+    let errorCount = 0;
+    const totalCount = currentData.length;
+
+    // 逐行对比缺陷
+    currentData.forEach(item => {
+      const finalItem = finalData.find(x => x.meter === item.meter);
+      if (!finalItem) return; // 米数不存在，跳过
+      
+      if (item.defect !== finalItem.defect) {
+        errorCount++;
+        const changeKey = `${item.defect} → ${finalItem.defect}`;
+        compareResult.changes[changeKey] = (compareResult.changes[changeKey] || 0) + 1;
+      }
+    });
+
+    // 计算错误率
+    const errorRate = totalCount > 0 
+      ? ((errorCount / totalCount) * 100).toFixed(2) + "%" 
+      : "0%";
+
+    // 保存该轮对比结果
+    compareResult.rounds.push({
+      round: round,
+      total: totalCount,
+      error: errorCount,
+      rate: errorRate
+    });
+  });
+
+  // 计算缺陷修改统计
+  const totalChangeCount = Object.values(compareResult.changes).reduce((a, b) => a + b, 0);
+  compareResult.changeStats = Object.entries(compareResult.changes).map(([key, count]) => {
+    const changeRate = totalChangeCount > 0 
+      ? ((count / totalChangeCount) * 100).toFixed(2) + "%" 
+      : "0%";
+    return { change: key, count: count, rate: changeRate };
+  });
+
+  // 存储对比结果（供导出使用）
+  window._lastCompare = compareResult;
+  
+  // 渲染对比结果（格式化显示）
+  let resultHtml = `
+    <div style="font-weight:bold;margin-bottom:8px">📊 带材 ${stripNo} 对比结果</div>
+    <div>初筛人员：${compareResult.screener}</div>
+    <div>复核人员：${compareResult.reviewer}</div>
+    <div>基准轮次：第 ${compareResult.finalRound} 轮</div>
+    <div style="margin-top:10px;font-weight:bold">各轮次错误统计：</div>
+  `;
+  
+  compareResult.rounds.forEach(item => {
+    resultHtml += `
+      <div style="margin-left:10px">
+        第 ${item.round} 轮：共 ${item.total} 条，错误 ${item.error} 条，错误率 ${item.rate}
+      </div>
+    `;
+  });
+  
+  resultHtml += `<div style="margin-top:10px;font-weight:bold">缺陷修改统计：</div>`;
+  if (totalChangeCount === 0) {
+    resultHtml += `<div style="margin-left:10px">无缺陷修改</div>`;
+  } else {
+    compareResult.changeStats.forEach(item => {
+      resultHtml += `
+        <div style="margin-left:10px">
+          ${item.change}：${item.count} 条（占比 ${item.rate}）
+        </div>
+      `;
+    });
+  }
+  
+  document.getElementById("result").innerHTML = resultHtml;
+}
+
+// 导出对比结果到Excel
+function exportResult() {
+  if (!window._lastCompare) {
+    alert("❌ 请先执行轮次对比！");
+    return;
+  }
+
+  const data = window._lastCompare;
+  // 构建CSV内容（带BOM头，避免Excel乱码）
+  let csvContent = "\ufeff带材编号,初筛人员,复核人员,基准轮次,对比轮次,总条数,错误条数,错误率\n";
+  
+  // 写入轮次对比数据
+  data.rounds.forEach(item => {
+    csvContent += `${data.stripNo},${data.screener},${data.reviewer},${data.finalRound},${item.round},${item.total},${item.error},${item.rate}\n`;
+  });
+  
+  // 写入缺陷修改统计
+  csvContent += "\n缺陷修改内容,修改条数,占比\n";
+  data.changeStats.forEach(item => {
+    csvContent += `"${item.change}",${item.count},${item.rate}\n`;
+  });
+
+  // 下载CSV文件
+  downloadCsv(csvContent, `带材${data.stripNo}_对比结果.csv`);
+}
+
+// 导出全部数据到Excel
+function exportFull() {
+  if (Object.keys(globalData).length === 0) {
+    alert("❌ 暂无数据可导出！");
+    return;
+  }
+
+  // 构建CSV内容
+  let csvContent = "\ufeff带材编号,初筛人员,复核人员,轮次,米数,缺陷名称\n";
+  
+  // 遍历所有带材
+  Object.keys(globalData).forEach(stripNo => {
+    const stripData = globalData[stripNo];
+    const rounds = stripData.rounds || {};
+    
+    // 遍历该带材的所有轮次
+    Object.keys(rounds).forEach(round => {
+      const roundData = rounds[round];
+      roundData.forEach(item => {
+        csvContent += `${stripNo},${stripData.screener},${stripData.reviewer},${round},${item.meter},"${item.defect}"\n`;
+      });
+    });
+  });
+
+  // 下载CSV文件
+  downloadCsv(csvContent, "带材数据_全部导出.csv");
+}
+
+// 通用CSV下载函数
+function downloadCsv(content, fileName) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
   a.click();
+  
+  // 释放URL对象
+  URL.revokeObjectURL(url);
+  
+  alert(`✅ 导出成功！\n文件已下载：${fileName}`);
 }
 </script>
 </body>
